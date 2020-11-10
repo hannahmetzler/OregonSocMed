@@ -5,6 +5,5 @@
 ./figures
 ./output
 *.tex
-./Campaign_Response_files
 OregonSocMed.Rproj
 Campaign_Response_files/
