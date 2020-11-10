@@ -1,0 +1,9 @@
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+./figures
+./output
+*.tex
+./Campaign_Response_files
+OregonSocMed.Rproj
