@@ -1,0 +1,227 @@
+---
+title: "Oregon Campaign Response on Twitter"
+author: "Hannah Metzler"
+date: "17 Nov 2020"
+output: 
+  pdf_document:
+    toc_depth: 2
+    df_print: kable
+    keep_tex: true
+url_colour: blue
+always_allow_html: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE)
+
+# session settings
+Sys.setlocale("LC_ALL", 'en_US.UTF-8')
+options(scipen=10)
+```
+
+```{r}
+#packages
+library(dplyr)
+library(ggplot2) #for figures
+library(scales)
+library(cowplot) #for figures, placing next to each other
+```
+
+```{r,data}
+# Run data preprocessing the first time you use this script (takes about 1 minute or so)
+# source("scripts/01preparedata.R")
+
+# or load data instead once data has been preprocessed
+df <- read.csv("data/TweetVolumeLongOfEffectExcludingCampaignAuthors.csv") %>% 
+  mutate(date=as.Date(date), 
+         state=factor(state),
+         period = factor(period, levels = c("Baseline","2019 before campaign", "Campaign-week", "After"), ordered=TRUE))
+
+```
+
+# Keywords used to search tweets in the query for Crimson Hexagon
+
+We used two different queries:
+
+* Label "Campaign": language:en AND region:USA.Or AND suicid* AND (breakingthesilenceor.com OR "#BreakingTheSilenceOR" OR "@BreakSilenceOR" OR "Breaking the silence" OR #Breakingthesilence) 
+* Label "Prevention": language:en AND region:USA.Or AND suicid* AND (800273talk OR 18002738255 OR "1-800-273-TALK" OR "1-800-273" OR "1-800-273-8255" OR lifeline OR "suicide hotline" OR "suicide prevention hotline" OR Betheoneto OR #BeThe1To OR #Betheoneto OR Bethe1to) 
+
+**Additional query settings**
+
+* We use each query twice, once while excluding the campaign initiators as authors of tweets, and once including them. To exclude, we added "AND NOT (author:breakSilenceOr OR author:800273TALK OR author:Lines_for_Life)". 
+* To download only English tweets from Oregon or Washington, we additionally used the query specifications: language:en AND region:USA.Or (or instead USA.WA). 
+
+
+```{r, time series function}
+plotTS <- function(df, mode="percent_change", title="Country TS", limits=NULL, factor=15, textsize=13, axistextsize=12)
+{
+  
+  #make plot
+  plt <- ggplot(data=df)
+  
+  if (mode == "percent_change")
+    plt <- plt +
+      geom_ribbon(aes(x=date, ymin=(prlow-bl)/bl, ymax=(prhigh-bl)/bl, fill=keywords, colour=keywords), alpha=0.2, size=0) +
+      geom_line( aes(x=date, y=(pr-bl)/bl, colour=keywords))+
+      ylab("% Difference over baseline")
+  if (mode == "percent_abs")
+    plt <- plt +
+      geom_ribbon(aes(x=date, ymin=prlow, ymax=prhigh, fill=keywords, colour=keywords), alpha=0.2, size=0) +
+      geom_line( aes(x=date, y=pr, colour=keywords), alpha=0.4)+
+      ylab("% tweets with keywords") 
+  if (mode == "Z")
+    plt <- plt +
+      geom_ribbon(aes(x=date, y=(pr-bl)/sd, ymin=(prlow-bl)/sd, ymax=(prhigh-bl)/sd, fill=keywords, colour=keywords), alpha=0.2, size=0) +
+      geom_line(aes(x=date, y=(pr-bl)/sd, colour=keywords))+
+      ylab("Z-score") #y axis label
+  
+  plt <- plt +  ggtitle(title)+ #plot title
+    scale_fill_manual(  values = c("Campaign wo authors"="blue", "Campaign with authors"="cyan","Prevention wo authors"="red", "Prevention with authors"="orange", alpha=0.4), name="Keywords in tweets")+
+    scale_colour_manual(  values = c("Campaign wo authors"="blue", "Campaign with authors"="cyan","Prevention wo authors"="red", "Prevention with authors"="orange"), name="Keywords in tweets")+
+    theme_bw()+ theme(text=element_text(size=textsize), axis.text=element_text(size=axistextsize), 
+                      axis.title.x = element_blank(),
+                      axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1), 
+                      legend.position=c(0.75,0.7),
+                      plot.margin = margin(0.5, 0.5, 0.5, 0.5, "cm"), 
+                      panel.grid.minor= element_blank())+
+    scale_x_date(date_breaks="1 month", date_labels = "%b")+
+    geom_hline(yintercept = 0, colour = "grey50")+ #mean line
+    geom_vline(xintercept = as.Date("2019-04-05"), colour = "grey50", linetype=2)+ #campaign week start
+    geom_vline(xintercept = as.Date("2019-04-14"), colour = "grey50", linetype=2) #campaign week end
+  
+  if (!is.null(limits))
+    plt <- plt + 
+    scale_y_continuous(limits = limits)
+  
+  
+  return(plt)
+}
+
+```
+
+\newpage
+
+
+
+# Time series around campaign week: absolute percentages of tweets with at least one keyword
+
+```{r, ts absolute campaign, fig.height=8, fig.width=6}
+df_or <- df %>% 
+  filter(state=="Oregon" & date>"2019-03-01"&date<"2019-06-01") 
+ts_or <- plotTS(df=df_or, mode="percent_abs", title="Oregon")+
+  geom_vline(xintercept = as.Date("2019-03-24"), colour = "red3", linetype=2)
+
+df_wa <- df %>% 
+  filter(state=="Washington" & date>"2019-03-01"&date<"2019-06-01")
+ts_wa <- plotTS(df=df_wa,  mode="percent_abs", title="Washington")+
+  geom_vline(xintercept = as.Date("2019-03-24"), colour = "red3", linetype=2)
+
+plot_grid(ts_or, ts_wa, ncol=1)
+```
+
+* Only a few tweets were posted from accounts of the campaign initiators (BreakSilenceOR, Lines_for_Life, 800273TALK) themselves. Most of the social media response in Oregon remains if these are excluded as authors. 
+* For tweets aimed at prevention (including lifeline numbers, terms, or the terms/hashtags related to "BeTheOneToo"), the difference in percentage is so minimal that it is not visible. There are only `r sum(with(df, subset(pr, keywords == "Prevention wo authors")) != with(df, subset(pr, keywords == "Prevention with authors")))` tweets more from these authors distributed across the entire time period and both states.
+* This means we can exclude tweets form these three twitter accounts, the response on Twitter is not only explained by them. 
+
+
+\newpage
+
+# Do Campaign tweets occur at all during the baseline?
+
+Limit the y-scale to check if small percentages below 0.05% occur: 
+
+```{r, campaign tweets below 0.05 before campaign, fig.height=8, fig.width=7}
+fontsingleplots = 10
+ggplot(data=filter(df, keywords=="Campaign wo authors" | keywords=="Campaign with authors"))+
+  geom_line( aes(x=date, y=pr, colour=keywords))+
+  facet_grid(rows=vars(state))+
+  ylab("% tweets with keywords") +
+  ggtitle("Entire period")+ #plot title
+  scale_fill_manual(  values = c("Campaign wo authors"="blue", "Campaign with authors"="cyan","Prevention wo authors"="red", "Prevention with authors"="orange", alpha=0.4), name="Keywords in tweets")+
+  scale_colour_manual(  values = c("Campaign wo authors"="blue", "Campaign with authors"="cyan","Prevention wo authors"="red", "Prevention with authors"="orange"), name="Keywords in tweets")+
+  theme_bw()+ theme(text=element_text(size=fontsingleplots), axis.text=element_text(size=fontsingleplots), 
+                    axis.title.x = element_blank(),
+                    axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1), 
+                    legend.position=c(0.2,0.9),
+                    plot.margin = margin(0.5, 0.5, 2, 0.5, "cm"), 
+                    panel.grid.minor= element_blank())+
+  scale_x_date(date_breaks="1 month", date_labels = "%b")+
+  geom_hline(yintercept = 0, colour = "grey50")+ #mean line
+  geom_vline(xintercept = as.Date("2019-04-05"), colour = "grey50", linetype=2)+ #campaign week start
+  geom_vline(xintercept = as.Date("2019-04-14"), colour = "grey50", linetype=2)+ #campaign week end
+  ylim(0, 0.045)
+```
+
+\newpage
+
+To look at the small frequencies before and after the campaign, I cut the y-scale to 0.002 percent max (1.0 would be 1%). Because of this, the high frequencies during the campaign week are not displayed, and the campaign week window is empty. This shows that breaking the silence terms were used on 3 or 4 days (depending on the state) before the campaign, but at a negligible percentage below 0.0005%. 
+
+```{r, campaign tweets below 0.002 before campaign, fig.height=8, fig.width=7}
+ggplot(data=filter(df, keywords=="Campaign wo authors" | keywords=="Campaign with authors"))+
+  geom_line( aes(x=date, y=pr, colour=keywords))+
+  facet_grid(rows=vars(state))+
+  ylab("% tweets with keywords") +
+  ggtitle("Entire period, y-scale cut ")+ #plot title
+  scale_colour_manual(  values = c("Campaign wo authors"="blue", "Campaign with authors"="cyan","Prevention wo authors"="red", "Prevention with authors"="orange"), name="Keywords in tweets")+
+  theme_bw()+ theme(text=element_text(size=fontsingleplots), axis.text=element_text(size=fontsingleplots), 
+                    axis.title.x = element_blank(),
+                    axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1), 
+                    legend.position=c(0.2,0.9),
+                    plot.margin = margin(0.5, 0.5, 2, 0.5, "cm"), 
+                    panel.grid.minor= element_blank())+
+  scale_x_date(date_breaks="2 month", date_labels = "%b")+
+  geom_hline(yintercept = 0, colour = "grey50")+ #mean line
+  geom_vline(xintercept = as.Date("2019-04-05"), colour = "grey50", linetype=2)+ #campaign week start
+  geom_vline(xintercept = as.Date("2019-04-14"), colour = "grey50", linetype=2)+ #campaign week end
+  ylim(0, 0.002)
+```
+
+\newpage
+
+# Descriptive statistics
+
+## Total sample
+
+```{r}
+df %>% 
+  group_by(keywords, state) %>% 
+  summarize(meanpr = mean(pr), sdpr = sd(pr), meanbl = mean(bl), meancilow = mean(prlow), meancihigh = mean(prhigh))
+```
+
+## Sample size and mean per day per state
+
+```{r}
+df %>% 
+  group_by(state) %>%
+  filter(keywords=="Campaign wo authors") %>% #choose only one of the repeated datasets (tot long the same every time)
+  summarize(milliontweets = round(sum(as.numeric(tot_n)/1000000), 2),
+            meantweetsperday = round(mean(as.numeric(tot_n)), 2)) %>% 
+  ungroup()
+```
+
+
+## Number of tweets per query per time period in Oregon
+
+* Baseline: 24 September 2018 to 24 March 2019 (half a year ending 2 weeks before the campaign)
+* Campaign-week: 7-14 April 2019
+* After: 15 April until 15 October 2019 (half a year after the campaign)
+
+```{r}
+df %>% 
+  filter(state=="Oregon") %>% 
+  group_by(period, keywords) %>%
+  summarize(meantweetsperday = round(mean(as.numeric(keywords_n)), 2),
+            sd=round(sd(keywords_n), 2)) %>% 
+  ungroup()
+```
+
+## Number of tweets per query per time period in Washington
+
+```{r}
+df %>% 
+  filter(state=="Washington") %>% 
+  group_by(period, keywords) %>%
+  summarize(meantweetsperday = round(mean(as.numeric(keywords_n)), 2),
+            sd=round(sd(keywords_n), 2)) %>% 
+  ungroup()
+```
