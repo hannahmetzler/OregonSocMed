@@ -7,4 +7,5 @@
 *.tex
 OregonSocMed.Rproj
 Campaign_Response_files/
-data_initialtestqueries/
+data_code_v1_testqueries/
+ReportsResults/
