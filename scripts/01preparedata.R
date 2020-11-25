@@ -71,7 +71,7 @@ prop_bl_long <- function(df_tot, df_c, df_ca, df_p, df_pa) {
       names_sep = "_" 
       #values_drop_na = TRUE
     ) %>%
-    mutate(keywords = dplyr::recode(keywords, c = "Campaign wo authors", ca="Campaign with authors", prev ="Prevention wo authors", preva="Prevention with authors")) %>% 
+    mutate(keywords = dplyr::recode(keywords, c = "Breaking the silence wo authors", ca="Breaking the silence with authors", prev ="Lifeline wo authors", preva="Lifeline with authors")) %>% 
     mutate(keywords = factor(keywords))%>%
     rename(keywords_n = n)
   
@@ -103,10 +103,10 @@ df_washington<- prop_bl_long(wa_tot, wa_c, wa_ca, wa_p, wa_pa) %>%
 
 #combine both dataframes
 df <- rbind(df_oregon, df_washington) %>% 
-  # df <- df_oregon %>% 
+# df <- df %>% 
   mutate(period = as.factor(case_when(
     date >= "2018-01-01" & date <= "2018-12-31" ~ "Baseline", 
-    date > "2019-04-14" ~ "After", 
+    date > "2019-04-14" & date <= "2019-06-14"~ "After", 
     date >= "2019-04-07" & date <= "2019-04-14" ~  "Campaign-week",
     TRUE ~ "2019 before campaign"))) 
 
@@ -114,9 +114,9 @@ df <- rbind(df_oregon, df_washington) %>%
 
 #save file with only the values when authors are excluded
 df1 <- df %>% 
-  filter(keywords=="Campaign wo authors" | keywords=="Prevention wo authors") %>% 
+  filter(keywords=="Breaking the silence wo authors" | keywords=="Lifeline wo authors") %>% 
   droplevels() %>% 
-  mutate(keywords=recode(keywords,"Campaign wo authors"= "Campaign", "Prevention wo authors"="Prevention"))
+  mutate(keywords=recode(keywords,"Breaking the silence wo authors"= "Breaking the silence", "Lifeline wo authors"="Lifeline"))
 
 write.csv(df1, "data/TweetVolumeLong.csv", row.names=F)
 
