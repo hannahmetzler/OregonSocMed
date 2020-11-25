@@ -2,13 +2,15 @@
 title: "Oregon Campaign Response on Twitter"
 author: "Hannah Metzler"
 date: "17 Nov 2020"
-output: 
+output:
   pdf_document:
-    toc_depth: 2
     df_print: kable
-    keep_tex: true
-url_colour: blue
+    keep_tex: yes
+    toc_depth: 2
+  word_document:
+    toc_depth: '2'
 always_allow_html: yes
+url_colour: blue
 ---
 
 ```{r setup, include=FALSE}
@@ -43,14 +45,22 @@ df <- read.csv("data/TweetVolumeLong.csv") %>%
          weekday = factor(lubridate::wday(date, label=T, abbr=F)),#transform date to day of the week, first day: Tuesday
          weekday=factor(weekday, levels= c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"), ordered=TRUE))
 
+#calculate the baseline: the year 2018 (see below for how we made decisions about how we calculate the baseline)
+df <-df %>% 
+  group_by(keywords, state) %>% 
+  filter(date >= as.Date("2018-01-01") & date <= as.Date("2018-12-31")) %>% #define when baseline period ends
+  summarise(bl=median(pr)) %>% 
+  #add the baseline to the df
+  inner_join(df)
 ```
 
 # Keywords used to search tweets in the query for Crimson Hexagon
 
 We used two different queries:
 
-* Label "Campaign": language:en AND region:USA.Or AND suicid* AND (breakingthesilenceor.com OR "#BreakingTheSilenceOR" OR "@BreakSilenceOR" OR "Breaking the silence" OR #Breakingthesilence) 
-* Label "Prevention": language:en AND region:USA.Or AND suicid* AND (800273talk OR 18002738255 OR "1-800-273-TALK" OR "1-800-273" OR "1-800-273-8255" OR lifeline OR "suicide hotline" OR "suicide prevention hotline" OR Betheoneto OR #BeThe1To OR #Betheoneto OR Bethe1to) 
+* Label "Breaking the silence": language:en AND region:USA.Or AND suicid* AND (breakingthesilenceor.com OR "#BreakingTheSilenceOR" OR "@BreakSilenceOR" OR "Breaking the silence" OR #Breakingthesilence) 
+* Label "Lifeline": language:en AND region:USA.Or AND suicid* AND (800273talk OR 18002738255 OR "1-800-273-TALK" OR "1-800-273" OR "1-800-273-8255" OR Lifeline OR "suicide hotline" OR "suicide prevention hotline" OR Betheoneto OR #BeThe1To OR #Betheoneto OR Bethe1to) 
+      - Bethe1to refers to "be the one to save a life", and was included because it is the  message promoted by the Lifeline during National Suicide Prevention Month and beyond. 
 
 **Additional query settings**
 
@@ -60,8 +70,8 @@ We used two different queries:
 
 **Creating these queries was an iterative process:**
 
-1. We first tested if including the word suicide in our query effected the number of campaign tweets, i.e. if there were many tweets that did not contain the word suicide which we would miss if we made "suicid*" a requirement. The effect was very small and neglible, therefore we always included the word suicide or suicidal. 
-2. We tested if tweets containing hashtags that represent community actions, like #PreventSuicide #NotAlone #HelpThemConnect etc responded to the campaign. Including them did not include additional tweets that we did not already catch with the campaign and prevention hashtags, indicating that these hashtags are mostly used in tweets that contain the lifeline number.
+1. We first tested if including the word suicide in our query effected the number of Breaking the silence tweets, i.e. if there were many tweets that did not contain the word suicide which we would miss if we made "suicid*" a requirement. The effect was very small and neglible, therefore we always included the word suicide or suicidal. 
+2. We tested if tweets containing hashtags that represent community actions, like #PreventSuicide #NotAlone #HelpThemConnect etc responded to the campaign. Including them did not include additional tweets that we did not already catch with the Breaking the silence and Lifeline keywords, indicating that these hashtags are mostly used in tweets that contain the Lifeline number.
 3. We tested if excluding the initiators of the campaign as authors of tweet had any effect on the response, to make sure the response was not just due to their tweets. Excluding them did not influence the percentage of tweets much, we therefore exclude them to get a clean impact measure of the campaign, rather then measuring the campaign itself. 
 
 \newpage
@@ -70,32 +80,33 @@ We used two different queries:
 # Time series around campaign week: Absolute percentages 
 
 Lines indicate the percentage of tweets that contained at least one keyword. Shaded areas around the lines are 95% binomial confidence intervals. 
-The vertical lines in the plots indicate the date of certain events that were mentioned in tweets containing our keywords. Their color indicates if the event was prevention-related (in green), or a suicide case (in red). The grey dashed lines always indicate the week of the _Breaking the silence_ campaign in Oregon (April 7-14th 2019). 
+The vertical lines in the plots indicate the date of certain events that were mentioned in tweets containing our keywords. Their color indicates if the event was Lifeline-related (in green), or a suicide case (in red). The grey dashed lines always indicate the week of the _Breaking the silence_ campaign in Oregon (April 7-14th 2019). 
 
 Vertical lines in the plot below indicate the following events:
 
-* Green: February 19 2019: the transgender lifeline gets introduced
+* Green: February 19 2019: the transgender Lifeline gets introduced
 * Red: March 23 and 25 2019: peak before the campaign: Two Parkland survivors, and then the father of a Sandy Hook victim die by suicide ([source](https://www.ctvnews.ca/world/two-parkland-survivors-father-of-sandy-hook-victim-die-by-suicide-1.4351198))
 
-Results shown in the following plot: 
-
-* After the suicides of 3 individuals (victims and bereaved of school shootings), the percentage of tweets containing prevention terms (lifeline names and numbers, "BeTheOneToo") increased to 0.1% of all tweets in both Oregon and Washington. 
-* During the campaign, tweets containing the campaign terms "Break the Silence" increase from 0% to 0.05% of all tweets in Oregon. This increase is comparable to the one after the introduction of the helpline for transgender individuals. 
-* In Washington there is a tiny neglible increase of these campaign terms. 
-* The word clouds for April 16-17th (the little peak of prevention tweets after the campaign week) do not reveal a special event, there were simply a lot of tweets with the lifeline number on those days, in both Oregon and Washington. 
-
-```{r, ts absolute campaign, fig.height=8, fig.width=6}
+```{r}
 df_or <- df %>% 
   filter(state=="Oregon" & date>as.Date("2019-02-01") & date < as.Date("2019-06-01") )
-
-
 ts_or <- events1819(plotTS(df=df_or, mode="percent_abs", title="Oregon - absolute percentage", limits=c(-0.01,0.13)))
 
 df_wa <- df %>% 
   filter(state=="Washington" & date>"2019-02-01"&date<"2019-06-01")
 ts_wa <- events1819(plotTS(df=df_wa,  mode="percent_abs", title="Washington - absolute percentage",limits=c(-0.01,0.13)))
-
 plot.abs <- plot_grid(ts_or, ts_wa, ncol=1)
+```
+
+Results shown in the following plot: 
+
+* During the campaign, tweets containing the campaign terms "Break the Silence" increase from `r round(median(filter(df, state=="Oregon" & keywords=='Breaking the silence'& period=="Baseline")$pr))`% to a peak of `r round(max(filter(df_or, keywords=='Breaking the silence'&period=="Campaign-week")$pr),3)`%, or a median of `r round(median(filter(df, keywords=='Breaking the silence'&period=="Campaign-week")$pr),3)`% of all tweets in Oregon. This increase is comparable to the one after the introduction of the helpline for transgender individuals. 
+* Lifeline-related tweets increased from a baseline of `r round(median(filter(df, state=="Oregon" & keywords=='Lifeline'& period=="Baseline")$pr),3)`% to a peak of `r round(max(filter(df_or, keywords=='Lifeline'&period=="Campaign-week")$pr),3)`%, or a median of `r round(median(filter(df, keywords=='Lifeline'&period=="Campaign-week")$pr),3)`%.
+* In Washington, these tweets do not increase significantly. 
+* Just before the campaign, and after the suicides of 3 individuals (victims and bereaved of school shootings), the percentage of tweets containing Lifeline terms (Lifeline names and numbers, "BeTheOneToo") increased to 0.1% of all tweets in both Oregon and Washington. 
+* The word clouds for April 16-17th (the little peak of Lifeline tweets after the campaign week) do not reveal a special event, there were simply a lot of tweets with the Lifeline number on those days, in both Oregon and Washington. 
+
+```{r, ts absolute campaign, fig.height=8, fig.width=6}
 plot.abs
 ```
 
@@ -116,8 +127,8 @@ We will calculate the year 2018 as baseline per query and per state. Peaks in th
 
 Results of the plots below:
 
-* The baseline is very low, apart from very few high spikes associated with suicide cases or prevention-related events. So that these outlier events do not influence the baseline, we take the median rather than the mean. 
-* Campaign tweets, i.e. tweets with the terms breaking the silence, do not seem to occur often enough to be visible in this plot. 
+* The baseline is very low, apart from very few high spikes associated with suicide cases or Lifeline-related events. So that these outlier events do not influence the baseline, we take the median rather than the mean. 
+* Breaking the silence tweets, i.e. tweets with the terms breaking the silence, do not seem to occur often enough to be visible in this plot. 
 * The baseline is very similar in both states. 
 
 ```{r, ts entire period, fig.height=8, fig.width=7}
@@ -132,11 +143,23 @@ ts_wa <- events1819(plotTS(df=df_wa, mode="percent_abs", title="Washington - Bas
 plot_grid(ts_or, ts_wa, ncol=1)
 ```
 
+Peaks of outlier events above n=200 Lifeline-related tweets (i.e. above 0.06%) in 2018. Numbers are  the average across Oregon and Washington, since they are so similar. This shows that these peaks are up to 200 times higher than the median number of tweets per day. On 9.6.2018 (suicide of Anthony Bourdain, a few days after Kate Spade), there were 1914 tweets, while the daily median is 10.
+
+```{r}
+as.data.frame(df %>% 
+                filter(keywords_n>200 & date < '2019-01-01') %>%
+                group_by(date, keywords) %>% 
+                summarise(statemean_n = mean(keywords_n), 
+                          steatemean_pr = mean(pr)) %>% 
+                arrange(date))
+```
 
 
-## Weekly fluctuation of prevention-related tweets?
 
-Is there a weekly fluctuation of prevention tweets, e.g. because the lifeline is mostly posted by professionals during their working time?
+
+## Weekly fluctuation of Lifeline-related tweets?
+
+Is there a weekly fluctuation of Lifeline tweets, e.g. because the Lifeline is mostly posted by professionals during their working time?
 
 ```{r, weekly fluctuation of tweets, fig.width=7, fig.height=4}
 ggplot(data=filter(df, date < as.Date("2018-06-01")))+
@@ -144,42 +167,45 @@ ggplot(data=filter(df, date < as.Date("2018-06-01")))+
   theme_bw()+theme(legend.position=c(0.87,0.82))+
   ylim(c(0,180))+labs(y="n tweets per day", x="")+
   ggtitle("N tweets per day, excluding spikes above 180, January-June 2018")+
-  scale_colour_manual(  values = c("Campaign"="blue", "Prevention"="cyan"), name="Keywords in tweets")
+  scale_colour_manual(  values = c("Breaking the silence"="blue", "Lifeline"="cyan"), name="Keywords in tweets")
 ```
 
 No clear weekly pattern visible in the plot above - how do weekly averages look like?
 
-```{r, tweets per weekday in 2018, fig.width=7, fig.height=4.5}
+```{r, tweets per weekday in 2018, fig.width=7, fig.height=7}
 perweekday <- df %>% 
   group_by(weekday, keywords) %>% 
-  filter(date<as.Date("2019-01-01")) %>% 
-  summarise(mean =mean(keywords_n), 
-            median=median(keywords_n)) %>% 
+  filter(period=="Baseline") %>% 
+  summarise(mean_n =mean(keywords_n), 
+            median_n=median(keywords_n), 
+            mean_pr =mean(pr), 
+            median_pr=median(pr)) %>% 
   ungroup() %>% 
-  pivot_longer(cols=c(mean, median), names_to="Average")
-ggplot(data=perweekday)+
-  geom_point(aes(x=weekday, y=value, group=Average, colour=keywords, shape=Average), size=3)+
-  geom_line(aes(x=weekday, y=value, group=paste(keywords, Average), colour=keywords, linetype=Average))+
-  theme_bw()+theme(legend.position="top")+
+ pivot_longer(cols=c(mean_n, median_n, mean_pr, median_pr),
+  names_to = c("Average", ".value"),
+  names_sep ='_')
+
+weekday_n <- ggplot(data=perweekday)+
+  geom_point(aes(x=weekday, y=n, group=Average, colour=keywords, shape=Average), size=3)+
+  geom_line(aes(x=weekday, y=n, group=paste(keywords, Average), colour=keywords, linetype=Average))+
+  theme_bw()+theme(legend.position="none")+
   ylim(c(0,60))+labs(y="n tweets", x="")+
-  ggtitle("Number of tweets with keywords per weekday")+
-  scale_colour_manual(  values = c("Campaign"="blue", "Prevention"="cyan"), name="Keywords in tweets")+
+  ggtitle("Tweets with keywords per weekday")+
+  scale_colour_manual(values = c("Breaking the silence"="blue", "Lifeline"="cyan"), name="Keywords in tweets")+
   scale_shape_manual(values=c(18,5))
+weekday_pr <- ggplot(data=perweekday)+
+  geom_point(aes(x=weekday, y=pr, group=Average, colour=keywords, shape=Average), size=3)+
+  geom_line(aes(x=weekday, y=pr, group=paste(keywords, Average), colour=keywords, linetype=Average))+
+  theme_bw()+theme(legend.position="top")+
+  ylim(c(0,0.016))+labs(y="% tweets", x="")+
+  scale_colour_manual(values = c("Breaking the silence"="blue", "Lifeline"="cyan"), name="Keywords in tweets")+
+  scale_shape_manual(values=c(18,5))
+plot_grid(weekday_n, weekday_pr, nrow=2)
 ```
 
-* The median, which is not influenced by outlier events, is flat, indicating that there is no regular fluctuation of tweets with the lifeline number or name, or betheonetoo terms. 
+* The median, which is not influenced by outlier events, is flat, indicating that there is no regular fluctuation of tweets with the Lifeline number or name, or betheonetoo terms. 
 * The mean shows that the outlier events have an effect on the baseline, although it is minimal. We will therefore use the median across all days in 2018, irrespective of weekday, as a baseline. 
-
-```{r}
-#calculate the baseline: the year 2018
-df <-df %>% 
-  group_by(keywords, state) %>% 
-  filter(date >= as.Date("2018-01-01") & date <= as.Date("2018-12-31")) %>% #define when baseline period ends
-  summarise(bl=median(pr)) %>% 
-  #add the baseline to the df
-  inner_join(df)
-
-```
+* Breaking the silence tweets have a median of `r filter(perweekday, Average=="median" & keywords=='Breaking the silence')$n[1]` (`r filter(perweekday, Average=="median" & keywords=='Breaking the silence')$pr[1]`%), while Lifeline tweets vary around `r median(round(filter(perweekday, Average=="median" & keywords=='Lifeline')$n,0))` `r median(round(filter(perweekday, Average=="median" & keywords=='Lifeline')$pr,3))`per day. 
 
 
 
@@ -187,16 +213,14 @@ df <-df %>%
 
 Baseline: Median level per state and keyword 2018. Peaks coincide with these events (suicide cases in red and suicide prevention events in green):
 
-* February 19 2019: transgender lifeline gets introduced
+* February 19 2019: transgender Lifeline gets introduced
 * March 23 and 25 2019: peak before the campaign: Two Parkland survivors, and then the father of a Sandy Hook victim die by suicide ([source](https://www.ctvnews.ca/world/two-parkland-survivors-father-of-sandy-hook-victim-die-by-suicide-1.4351198))
 
 Results in the following plot: 
 
-* The change in percentage of tweets with keywords compared to baseline is much larger when we look at tweets that contain both the campaign words and suicid*. This is probably because tweets referring to the campaign are very rare usually, and because most of them mentioned suicide (e.g. not just saying call the lifeline, but for instance "if you are thinking about suicide, call the lifeline").
+* The change in percentage of tweets with keywords compared to baseline is much larger when we look at tweets that contain both the campaign words and suicid*. This is probably because tweets referring to the campaign are very rare usually. 
 * The change is very clear in Oregon, and entirely absent in Washington.
 * Because the baseline is nearly zero in both states, the difference to the baseline looks very similar to absolute (uncorrected) levels. 
-
-
 
 ```{r, ts change campaign, fig.height=8, fig.width=12}
 df_or <- df %>%
@@ -219,9 +243,20 @@ plot_grid(plot.abs, plot.change)
 
 # Time series after the campaign: Difference to the baseline
 
-* Red line on June 25th: lots of prevention tweets are posted in response to the news about Etika's suicide around June 20th ([source](https://en.wikipedia.org/wiki/Etika#Disappearance_and_death))
+* Red line on June 25th: lots of Lifeline tweets are posted in response to the news about Etika's suicide around June 20th ([source](https://en.wikipedia.org/wiki/Etika#Disappearance_and_death))
 * Green line on September 10th: world suicide prevention day
 * Green line on October 10th: world mental health day focus on suicide prevention ([source](https://www.who.int/news-room/events/detail/2019/10/10/default-calendar/world-mental-health-day-2019-focus-on-suicide-prevention))
+
+The peaks associated with these outlier events with more than 200 Lifeline-related tweets are (Numbers are  the average across Oregon and Washington, since they are so similar.):
+
+```{r}
+as.data.frame(df %>% 
+                filter(keywords_n>200 & date > '2019-01-01') %>%
+                group_by(date, keywords) %>% 
+                summarise(statemean_n = mean(keywords_n), 
+                          steatemean_pr = mean(pr)) %>% 
+                arrange(date))
+```
 
 
 The plot below shows that the campaign messages were pushed again slightly around world suicide prevention day, given that people tweeted about it again. 
@@ -242,20 +277,20 @@ plot_grid(ts_or, ts_wa, ncol=1)
 
 # Difference Oregon - Washington 
 
-* The dots in the plot indicate levels of tweets with campaign or prevention terms in Oregon. By comparing this with the lines that show the difference to Washington, we can see that the difference during the campaign week is explained by an increase of terms in Oregon, as there was no change in Washington. 
+* The dots in the plot indicate levels of tweets with campaign or Lifeline terms in Oregon. By comparing this with the lines that show the difference to Washington, we can see that the difference during the campaign week is explained by an increase of terms in Oregon, as there was no change in Washington. 
 
 ```{r, d}
-ovsw <- df %>% 
+  diff_blcorrected <- df %>% 
   group_by(keywords, date) %>%
-  mutate(pr_diff=pr[state=="Oregon"]-pr[state=="Washington"],
-         prlow1 =prlow[state=="Oregon"]-prlow[state=="Washington"],
-         prhigh1 =prhigh[state=="Oregon"]-prhigh[state=="Washington"]) %>% 
+  mutate(pr_diff=(pr[state=="Oregon"]-bl[state=="Oregon"])-(pr[state=="Washington"]-bl[state=="Washington"]),
+         prlow1 =(prlow[state=="Oregon"]-bl[state=="Oregon"])-(prlow[state=="Washington"]-bl[state=="Washington"]),
+         prhigh1 =(prhigh[state=="Oregon"]-bl[state=="Oregon"])-(prhigh[state=="Washington"]-bl[state=="Washington"])) %>% 
   filter(state=="Oregon") %>% #select Oregon lines only, because the difference is the same for both states
   select(date, keywords, pr_diff, prlow1, prhigh1) %>% 
   rename(pr=pr_diff, prlow=prlow1, prhigh=prhigh1) %>% 
   arrange(date) %>% 
   ungroup() 
-  # mutate(keywords = recode(keywords, Prevention = 'Difference prevention', Campaign = 'Difference campaign'))
+# mutate(keywords = recode(keywords, Lifeline = 'Difference Lifeline', Breaking the silence = 'Difference campaign'))
 #calculate proportional change - decide how to do this because of baseline=0 for some keywords
 # mutate(pr_ovsw = case_when(
 #   any(pr==0)==FALSE ~ (pr[state=="Oregon"]-pr[state=="Washington"])/pr[state=="Washington"],
@@ -265,55 +300,81 @@ ovsw <- df %>%
 # make the plot
 textsize=13
 axistextsize=12
-plot.statediff <-ggplot(filter(ovsw,  date>"2019-02-01"&date<"2019-06-01") )+ 
+plot.statediff <-ggplot(filter(diff_blcorrected,  date>"2019-02-07"&date<"2019-06-14") )+ 
   # plot the difference
-  geom_ribbon(aes(x=date, ymin=prlow, ymax=prhigh, fill=keywords, colour=keywords), alpha=0.2, size=0.21) +
+  geom_ribbon(aes(x=date, ymin=prlow, ymax=prhigh, fill=keywords, colour=keywords), alpha=0.3, size=0) +
   geom_line( aes(x=date, y=pr, colour=keywords))+
-  ylab("Difference % tweets with keywords (O-W)") +
+  ylab("Difference % tweets (O-W)") +
+  scale_y_continuous(limits = c(-0.01,0.13))+
   ggtitle("Difference between Oregon and Washington")+
-  scale_fill_manual(  values = c("Campaign"="blue", "Prevention"="cyan"), name="Keywords in tweets")+
-  scale_colour_manual(  values = c("Campaign"="blue", "Prevention"="cyan"), name="Keywords in tweets")+
-  theme_bw()+ theme(text=element_text(size=textsize), axis.text=element_text(size=axistextsize), 
+  scale_fill_manual(  values = c("Breaking the silence"="blue", "Lifeline"="cyan"), name="Keywords in tweets")+
+  scale_colour_manual(  values = c("Breaking the silence"="blue", "Lifeline"="cyan"), name="Keywords in tweets")+
+  theme_bw()+ theme(text=element_text(size=textsize), axis.text=element_text(size=axistextsize),
                     axis.title.x = element_blank(),
-                    axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1), 
-                    legend.position=c(0.75,0.75),
-                    plot.margin = margin(0.5, 0.5, 0.5, 0.5, "cm"), 
+                    axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1),
+                    legend.position=c(0.8,0.75),
+                    plot.margin = margin(0.5,0.5,0.5,0.5, "cm"),
                     panel.grid.minor= element_blank())+
   scale_x_date(date_breaks="1 month", date_labels = "%b")+
   geom_hline(yintercept = 0, colour = "grey50")+ #mean line
   geom_vline(xintercept = as.Date("2019-04-05"), colour = "grey50", linetype=2)+ #campaign week start
-  geom_vline(xintercept = as.Date("2019-04-14"), colour = "grey50", linetype=2)+ #campaign week end
-  #plot the level in Oregon, it should be similar to the difference during the campaign week, given that the level is almost 0 in Washington
-  geom_line(data = filter(df, state=='Oregon' & date>"2019-03-01"&date<"2019-06-01"), aes(x=date, y=pr, colour=keywords), linetype=3, size=0.7)+
-  annotate(geom="text", x=as.Date("2019-05-10"), y=0.0682, label=".....   Levels in Oregon", size=3.65)
+  geom_vline(xintercept = as.Date("2019-04-14"), colour = "grey50", linetype=2) #campaign week end
 
-#show plot with event lines
-events1819(plot.statediff)
+#add event lines and the levels minus baseline in Oregon for comparison reasons
+events1819(plot.statediff+
+             #plot the level in Oregon, it should be similar to the difference during the campaign week, given that the level is almost 0 in Washington
+             geom_line(data = filter(df, state=='Oregon' & date>"2019-03-01"&date<"2019-06-01"), aes(x=date, y=pr-bl, colour=keywords), linetype=3, size=0.7)+
+             annotate(geom="text", x=as.Date("2019-05-10"), y=0.076, label=".....   Levels in Oregon", size=3.65))
+  ```
 
-
-
-```
-
-* The increase of tweets containing the Campaign terms (Breaking the silence) and of Prevention terms (life line name and numbers and BeTheOneToo) was higher in Oregon than in Washington.
+* The increase of tweets containing the Breaking the silence terms (Lifeline) and of Lifeline terms (life line name and numbers and BeTheOneToo) was higher in Oregon than in Washington.
 * The pattern of differences during the campaign week looks almost exactly like the levels in Oregon itself, indicating  that the difference was entirely driven by Oregon (which makes sense as there was almost no social media response in Washington). 
-* Outside of the campaign week, tweets with prevention terms change similarly in both states, as indicated by very small differences. Only the spike in response to 3 suicides after March 23rd was slightly larger in Oregon than Washington (0.03%).
+* Outside of the campaign week, tweets with Lifeline terms change similarly in both states, as indicated by very small differences. Only the spike in response to 3 suicides after March 23rd was slightly larger in Oregon than Washington (0.03%).
+
+\newpage
+
+# Plot for report: Both states and their difference
+
+All timelines in the figure below are baseline corrected. The figure shows the time series of Breaking the silence and Lifeline tweets 2 months before and 2 months after the campaign week, specifically from February 7th to June 14th 2019. 
+
+```{r, summary figure states and difference, fig.height=8, fig.width=12}
+df_or <- df %>%
+  filter(state=="Oregon" & date>"2019-02-07"&date<"2019-06-14")
+ts_or <- events1819(plotTS(df=df_or, title="Oregon", limits=c(-0.01,0.13), legpos="none"))
+
+df_wa <- df %>%
+  filter(state=="Washington" & date>"2019-02-07"&date<"2019-06-14")
+ts_wa <- events1819(plotTS(df=df_wa, title="Washington",   limits=c(-0.01,0.13), legpos="none"))
+
+#difference plot
+ts_diff <- events1819(plot.statediff+
+                        #remove the legend
+                        theme(legend.position="right", 
+                              axis.text.x=element_text(angle=0, vjust=0.5, hjust=0.5)))
+
+  # pdf('figures/oregon_washington_absolute&difference_aroundcampaignweek.pdf', height=7, width=11)
+  plot_grid(plot_grid(ts_or, ts_wa, labels=c("A", "B")), 
+            plot_grid(ts_diff, rel_widths=c(1.88,1), ncol=2, labels="C"), 
+            nrow=2)
+  # dev.off()
+```
 
 
 \newpage
 
-# Do Campaign tweets occur at all during the baseline?
+# Do Breaking the silence tweets occur at all during the baseline?
 
 Limit the y-scale to check if small percentages below 0.05% occur: 
 
 ```{r, campaign tweets below 0.05 before campaign, fig.height=6, fig.width=7}
 fontsingleplots = 11
-ggplot(data=filter(df, keywords=="Campaign"))+
+ggplot(data=filter(df, keywords=="Breaking the silence"))+
   geom_line( aes(x=date, y=pr, colour=keywords))+
   facet_grid(rows=vars(state))+
   ylab("% tweets with keywords") +
-  ggtitle("Campaign tweets below 0.04% during entire period")+ #plot title
-  scale_fill_manual(  values = c("Campaign"="blue", "Prevention"="cyan"), name="Keywords in tweets")+
-  scale_colour_manual(  values = c("Campaign"="blue", "Prevention"="cyan"), name="Keywords in tweets")+ 
+  ggtitle("Breaking the silence tweets below 0.04% during entire period")+ #plot title
+  scale_fill_manual(  values = c("Breaking the silence"="blue", "Lifeline"="cyan"), name="Keywords in tweets")+
+  scale_colour_manual(  values = c("Breaking the silence"="blue", "Lifeline"="cyan"), name="Keywords in tweets")+ 
   theme_bw()+ theme(text=element_text(size=fontsingleplots), axis.text=element_text(size=fontsingleplots), 
                     axis.title.x = element_blank(),
                     axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1), 
@@ -329,16 +390,16 @@ ggplot(data=filter(df, keywords=="Campaign"))+
 
 \newpage
 
-To look at the small frequencies before and after the campaign, I cut the y-scale to 0.002 percent max (1.0 would be 1%). Because of this, the high frequencies during the campaign week are not displayed, and the campaign week window is empty. This shows that breaking the silence terms were used on 3 or 4 days (depending on the state) before the campaign, but at a negligible percentage below 0.0005%. 
+To look at the small frequencies before and after the campaign, I cut the y-scale to 0.002 percent max (1.0 would be 1%). Because of this, the high frequencies during the campaign week are not displayed, and the campaign week window is empty. This shows that Lifeline terms were used on 3 or 4 days (depending on the state) before the campaign, but at a negligible percentage below 0.0005%. 
 
 ```{r, campaign tweets below 0.002 before campaign, fig.height=6, fig.width=7}
-ggplot(data=filter(df, keywords=="Campaign"))+
+ggplot(data=filter(df, keywords=="Breaking the silence"))+
   geom_line( aes(x=date, y=pr, colour=keywords))+
   facet_grid(rows=vars(state))+
   ylab("% tweets with keywords") +
-  ggtitle("Campaign tweets below 0.002% during entire period")+ #plot title
-  scale_fill_manual(  values = c("Campaign"="blue", "Prevention"="cyan"), name="Keywords in tweets")+
-  scale_colour_manual(  values = c("Campaign"="blue", "Prevention"="cyan"), name="Keywords in tweets")+ 
+  ggtitle("Breaking the silence tweets below 0.002% during entire period")+ #plot title
+  scale_fill_manual(  values = c("Breaking the silence"="blue", "Lifeline"="cyan"), name="Keywords in tweets")+
+  scale_colour_manual(  values = c("Breaking the silence"="blue", "Lifeline"="cyan"), name="Keywords in tweets")+ 
   theme_bw()+ theme(text=element_text(size=fontsingleplots), axis.text=element_text(size=fontsingleplots), 
                     axis.title.x = element_blank(),
                     axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1), 
@@ -352,53 +413,86 @@ ggplot(data=filter(df, keywords=="Campaign"))+
   ylim(0, 0.002)
 ```
 
+What number of tweets do these percentages represent? Only 1 tweet for each occurence during the baseline period. 
+  
+```{r, n campaign tweets before campaign, fig.height=6, fig.width=7}
+ggplot(data=filter(df, keywords=="Breaking the silence"))+
+  geom_line( aes(x=date, y=keywords_n, colour=keywords))+
+  facet_grid(rows=vars(state))+
+  ylab("% tweets with keywords") +
+  ggtitle("Breaking the silence tweets number during entire period")+ #plot title
+  scale_fill_manual(  values = c("Breaking the silence"="blue", "Lifeline"="cyan"), name="Keywords in tweets")+
+  scale_colour_manual(  values = c("Breaking the silence"="blue", "Lifeline"="cyan"), name="Keywords in tweets")+ 
+  theme_bw()+ theme(text=element_text(size=fontsingleplots), axis.text=element_text(size=fontsingleplots), 
+                    axis.title.x = element_blank(),
+                    axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1), 
+                    legend.position="none",
+                    plot.margin = margin(0.5, 0.5, 2, 0.5, "cm"), 
+                    panel.grid.minor= element_blank())+
+  scale_x_date(date_breaks="2 month", date_labels = "%b")+
+  geom_hline(yintercept = 0, colour = "grey50")+ #mean line
+  geom_vline(xintercept = as.Date("2019-04-05"), colour = "grey50", linetype=2)+ #campaign week start
+  geom_vline(xintercept = as.Date("2019-04-14"), colour = "grey50", linetype=2)+ #campaign week end
+  ylim(0,5)
+```
+
+
 
 \newpage
+
+# Entire time period time series
+
+```{r, fig.height=7}
+events1819(plotTS(df=df, mode="number", title="Daily tweets cut at max 300 - Entire timeperiod", limits=c(0,300), textsize=13, axistextsize = 10, legpos="bottom"))+facet_grid(rows="state")+xlim(as.Date("2018-01-01"), as.Date("2019-11-30"))
+```
 
 # Descriptive statistics
 
 ## Total sample
 
+Median and median absolute deviation of tweets per day across both states:
+
 ```{r}
 df %>% 
   group_by(keywords, state) %>% 
-  summarize(meanpr = mean(pr), sdpr = sd(pr), meanbl = mean(bl), meancilow = mean(prlow), meancihigh = mean(prhigh))
+  summarize(median_pr = median(pr), median_abs_dev = mad(pr))
 ```
 
-## Sample size and mean per day per state
+## Total number of tweets and median number of tweets per day in each state
 
 ```{r}
-df %>% 
+tot <- df %>% 
   group_by(state) %>%
-  filter(keywords=="Campaign wo authors") %>% #choose only one of the repeated datasets (tot long the same every time)
+  filter(keywords=="Breaking the silence") %>% #choose only one of the repeated datasets (tot long the same every time)
   summarize(milliontweets = round(sum(as.numeric(tot_n)/1000000), 2),
-            meantweetsperday = round(mean(as.numeric(tot_n)), 2)) %>% 
+            tweetsperday = round(median(as.numeric(tot_n)), 2)) %>% 
   ungroup()
+tot
 ```
 
 
-## Number of tweets per query per time period in Oregon
 
-* Baseline: 24 September 2018 to 24 March 2019 (half a year ending 2 weeks before the campaign)
+
+## Number of tweets per query per time period 
+* Baseline: the year 2018
 * Campaign-week: 7-14 April 2019
-* After: 15 April until 15 October 2019 (half a year after the campaign)
+* After: 15 April until 14 June 2019 (2 months after the campaign)
 
 ```{r}
-df %>% 
-  filter(state=="Oregon") %>% 
-  group_by(keywords, period) %>%
-  summarize(meantweetsperday = round(mean(as.numeric(keywords_n)), 2),
-            sd=round(sd(keywords_n), 2)) %>% 
-  ungroup()
+medianperiod = as.data.frame(df %>% 
+  group_by(state, keywords, period) %>%
+  summarize(mediann = round(median(as.numeric(keywords_n)), 2),
+            madn=round(mad(keywords_n), 2), 
+            medianpr =round(median(as.numeric(pr)), 3), 
+            madpr=round(mad(pr), 3))%>% 
+  ungroup())
+filter(medianperiod, state=="Oregon")
+filter(medianperiod, state=="Washington")
+# write.csv2(medianperiod, './output/median_per_period.csv', row.names=F)
 ```
 
-## Number of tweets per query per time period in Washington
+## Descriptive statistics summary
 
-```{r}
-df %>% 
-  filter(state=="Washington") %>% 
-  group_by(keywords, period) %>%
-  summarize(meantweetsperday = round(mean(as.numeric(keywords_n)), 2),
-            sd=round(sd(keywords_n), 2)) %>% 
-  ungroup()
-```
+We analysed a total number of `r filter(tot, state=="Oregon")$milliontweets` million tweets from Oregon, and `r filter(tot, state=="Washington")$milliontweets` million tweets from Washinton. During the period analysed from January 1 2018 until November 30 2019, there are very few tweets that mention mention the terms “Break the Silence” outside of the campaign window, resulting in a median of 0%. For instance, there are only 9 tweets across both states in the entire baseline year.  However, around `r round(median(filter(df, keywords=='Prevention')$pr), 3)`% of all tweets refer either to the Lifeline or to BeTheOneToo in both Oregon and Washington on average. 
+
+
