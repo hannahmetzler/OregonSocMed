@@ -29,6 +29,8 @@ library(cowplot) #for figures, placing next to each other
 library(tidyr)
 ```
 
+# To Do: run with tweets about suicide as total. See script 01prepdata, there is a problem to fix there first. 
+
 ```{r,data, include=FALSE}
 # Run data preprocessing the first time you use this script (takes about 1 minute or so)
 # source("scripts/01preparedata.R")
