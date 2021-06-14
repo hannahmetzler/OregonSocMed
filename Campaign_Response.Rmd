@@ -29,18 +29,21 @@ library(cowplot) #for figures, placing next to each other
 library(tidyr)
 ```
 
-# To Do: run with tweets about suicide as total. See script 01prepdata, there is a problem to fix there first. 
-
 ```{r,data, include=FALSE}
 # Run data preprocessing the first time you use this script (takes about 1 minute or so)
 # source("scripts/01preparedata.R")
 
 #load the functions for making time series plots (plotTS) and for adding event lines to plots (events1819)
 source('scripts/02_functions_figures_settings.R')
-
 # or load data instead once data has been preprocessed
+
 Sys.setlocale("LC_ALL", 'en_US.UTF-8') # to make sure weekdays are in English
-df <- read.csv("data/TweetVolumeLong.csv") %>% 
+
+df_all <- read.csv("data/TweetVolumeLong_TotalAll_202106.csv")
+df_sui <- read.csv("data/TweetVolumeLong_TotalSuicide_202106.csv") 
+
+format = function(df){
+df = df %>% 
   mutate(date=as.Date(date), 
          state=factor(state),
          period = factor(period, levels = c("Baseline","2019 before campaign", "Campaign-week", "After"), ordered=TRUE), 
@@ -52,8 +55,30 @@ df <-df %>%
   group_by(keywords, state) %>% 
   filter(date >= as.Date("2018-01-01") & date <= as.Date("2018-12-31")) %>% #define when baseline period ends
   summarise(bl=median(pr)) %>% 
+  ungroup() %>% 
   #add the baseline to the df
   inner_join(df)
+}
+
+#format both dataframes:
+df_all = format(df_all)
+df_sui = format(df_sui)
+```
+
+
+```{r, suicide related vs all tweets, results=TRUE}
+#choose dataframe for figures and tables below: 
+#choose total tweet volume: all tweets or tweets about suicide
+
+total = "suicide" # suicide or all
+
+if(total =="all"){
+  df = df_all
+print("Total number of tweets are all tweets per state")
+} else if (total=="suicide") {
+  df= df_sui
+print("Total number of tweets are all tweets containing the word suicide(s) or suicidal per state")
+}
 ```
 
 # Keywords used to search tweets in the query for Crimson Hexagon
@@ -69,6 +94,7 @@ We used two different queries:
 * We only included tweets containing the word suicide or suicideal (AND suicid*) to make sure other campaigns with the terms "Breaking the silence" did not influence our results. (E.g. a campaign by Siemens focused on domestic violence.)
 * We exclude tweets written by the campaign initiators themselves, to investigate only the response to their campaign. For this, we added "AND NOT (author:breakSilenceOr OR author:800273TALK OR author:Lines_for_Life)" to the query. 
 * To download only English tweets from Oregon or Washington, we additionally used the query specifications: language:en AND region:USA.Or (or instead USA.WA). 
+* Time period: January 2018 until October 2020
 
 **Creating these queries was an iterative process:**
 
@@ -92,11 +118,22 @@ Vertical lines in the plot below indicate the following events:
 ```{r}
 df_or <- df %>% 
   filter(state=="Oregon" & date>as.Date("2019-02-01") & date < as.Date("2019-06-01") )
-ts_or <- events1819(plotTS(df=df_or, mode="percent_abs", title="Oregon - absolute percentage", limits=c(-0.01,0.13)))
+if(total=="all"){
+  ts_or <- events1819(plotTS(df=df_or, mode="percent_abs", title="Oregon - absolute percentage",  limits=c(-0.01,0.13)))
+} else { 
+  ts_or <- events1819(plotTS(df=df_or, mode="percent_abs", title="Oregon - absolute percentage",  limits=c(-0,40)))
+}
+
 
 df_wa <- df %>% 
   filter(state=="Washington" & date>"2019-02-01"&date<"2019-06-01")
-ts_wa <- events1819(plotTS(df=df_wa,  mode="percent_abs", title="Washington - absolute percentage",limits=c(-0.01,0.13)))
+ts_wa <- events1819(plotTS(df=df_wa,  mode="percent_abs", title="Washington - absolute percentage"))
+if(total=="all"){
+  ts_wa <- events1819(plotTS(df=df_wa, mode="percent_abs", title="Oregon - absolute percentage",  limits=c(-0.01,0.13)))
+} else { 
+  ts_wa <- events1819(plotTS(df=df_wa, mode="percent_abs", title="Oregon - absolute percentage",  limits=c(-0,40)))
+}
+  
 plot.abs <- plot_grid(ts_or, ts_wa, ncol=1)
 ```
 
@@ -156,6 +193,16 @@ as.data.frame(df %>%
                 arrange(date))
 ```
 
+# Time periods
+
+We investigate the number and percentage of tweets with lifeline or breaking the silence keywords across 4 time periods: 
+
+```{r}
+df %>% 
+  group_by(period) %>% 
+  summarise(start = first(date), 
+            end = last(date))
+```
 
 
 
@@ -199,7 +246,7 @@ weekday_pr <- ggplot(data=perweekday)+
   geom_point(aes(x=weekday, y=pr, group=Average, colour=keywords, shape=Average), size=3)+
   geom_line(aes(x=weekday, y=pr, group=paste(keywords, Average), colour=keywords, linetype=Average))+
   theme_bw()+theme(legend.position="top")+
-  ylim(c(0,0.016))+labs(y="% tweets", x="")+
+  labs(y="% tweets", x="")+
   scale_colour_manual(values = c("Breaking the silence"="blue", "Lifeline"="cyan"), name="Keywords in tweets")+
   scale_shape_manual(values=c(18,5))
 plot_grid(weekday_n, weekday_pr, nrow=2)
@@ -225,17 +272,26 @@ Results in the following plot:
 * Because the baseline is nearly zero in both states, the difference to the baseline looks very similar to absolute (uncorrected) levels. 
 
 ```{r, ts change campaign, fig.height=8, fig.width=12}
-df_or <- df %>%
-  filter(state=="Oregon" & date>"2019-02-01"&date<"2019-06-01")
-ts_or <- events1819(plotTS(df=df_or, title="Oregon minus baseline", limits=c(-0.01,0.13), legpos="none"))
+df_or <- df %>% 
+  filter(state=="Oregon" & date>as.Date("2019-02-01") & date < as.Date("2019-06-01") )
+if(total=="all"){
+ ts_or <- events1819(plotTS(df=df_or, mode="percent_change", title="Oregon minus baseline", legpos="none",  limits=c(-0.01,0.13)))
+} else { 
+  ts_or <- events1819(plotTS(df=df_or, mode="percent_change", title="Oregon minus baseline", legpos="none", limits=c(-5,40)))
+}
 
-df_wa <- df %>%
+
+df_wa <- df %>% 
   filter(state=="Washington" & date>"2019-02-01"&date<"2019-06-01")
-ts_wa <- events1819(plotTS(df=df_wa, title="Washington minus baseline",   limits=c(-0.01,0.13)))
+ts_wa <- events1819(plotTS(df=df_wa,  mode="percent_abs", title="Washington - absolute percentage"))
+if(total=="all"){
+  ts_wa <- events1819(plotTS(df=df_wa, mode="percent_change", title="Washington minus baseline",  limits=c(-0.01,0.13)))
+} else { 
+  ts_wa <- events1819(plotTS(df=df_wa, mode="percent_change", title="Washington minus baseline",   limits=c(-5,40)))
+}
 
-
+#add absolute and change plot together
 plot.change <- plot_grid(ts_or, ts_wa, ncol=1)
-
 plot_grid(plot.abs, plot.change)
 ```
 
@@ -267,11 +323,17 @@ The plot below shows that the campaign messages were pushed again slightly aroun
 ```{r, ts after campaign, fig.height=15, fig.width=14}
 df_or <- df %>%
   filter(state=="Oregon" & date>"2019-04-01")
-ts_or <- events1819(plotTS(df=df_or, title="Oregon - After campaign", limits=c(-0.1,0.15), textsize=25, axistextsize = 16, legpos=c(0.75,0.8)))
-
 df_wa <- df %>%
   filter(state=="Washington"& date>"2019-04-01")
-ts_wa <- events1819(plotTS(df=df_wa, title="Washington - After campaign", limits=c(-0.1,0.15), textsize=25, axistextsize = 16, legpos=c(0.75,0.8)))
+
+if(total=="all"){
+  ts_or <- events1819(plotTS(df=df_or, title="Oregon - After campaign", limits=c(-0.01,0.13), textsize=25, axistextsize = 16, legpos=c(0.5,0.8)))
+  ts_wa <- events1819(plotTS(df=df_wa, title="Washington - After campaign", limits=c(-0.01,0.13), textsize=25, axistextsize = 16, legpos=c(0.5,0.8)))
+} else { 
+  ts_or <- events1819(plotTS(df=df_or, title="Oregon - After campaign", limits=c(-5,40), textsize=25, axistextsize = 16, legpos=c(0.5,0.8)))
+  ts_wa <- events1819(plotTS(df=df_wa, title="Washington - After campaign", limits=c(-5,40), textsize=25, axistextsize = 16, legpos=c(0.5,0.8)))
+}
+
 plot_grid(ts_or, ts_wa, ncol=1)
 ```
 
@@ -302,12 +364,19 @@ plot_grid(ts_or, ts_wa, ncol=1)
 # make the plot
 textsize=13
 axistextsize=12
+if(total=="all"){
+  ylims = c(-0.01,0.13)
+  pos_extralegend = 0.075 #position of manually added legend ... Oregon
+} else { 
+  ylims = c(-12,40)
+  pos_extralegend = 15.7
+}
 plot.statediff <-ggplot(filter(diff_blcorrected,  date>"2019-02-07"&date<"2019-06-14") )+ 
   # plot the difference
   geom_ribbon(aes(x=date, ymin=prlow, ymax=prhigh, fill=keywords, colour=keywords), alpha=0.3, size=0) +
   geom_line( aes(x=date, y=pr, colour=keywords))+
   ylab("Difference % tweets (O-W)") +
-  scale_y_continuous(limits = c(-0.01,0.13))+
+  # scale_y_continuous(limits = ylims)+
   ggtitle("Difference between Oregon and Washington")+
   scale_fill_manual(  values = c("Breaking the silence"="blue", "Lifeline"="cyan"), name="Keywords in tweets")+
   scale_colour_manual(  values = c("Breaking the silence"="blue", "Lifeline"="cyan"), name="Keywords in tweets")+
@@ -326,8 +395,8 @@ plot.statediff <-ggplot(filter(diff_blcorrected,  date>"2019-02-07"&date<"2019-0
 events1819(plot.statediff+
              #plot the level in Oregon, it should be similar to the difference during the campaign week, given that the level is almost 0 in Washington
              geom_line(data = filter(df, state=='Oregon' & date>"2019-03-01"&date<"2019-06-01"), aes(x=date, y=pr-bl, colour=keywords), linetype=3, size=0.7)+
-             annotate(geom="text", x=as.Date("2019-05-10"), y=0.076, label=".....   Levels in Oregon", size=3.65))
-  ```
+             annotate(geom="text", x=as.Date("2019-05-21"), y=pos_extralegend, label="....   Levels in Oregon", size=3.65))
+```
 
 * The increase of tweets containing the Breaking the silence terms (Lifeline) and of Lifeline terms (life line name and numbers and BeTheOneToo) was higher in Oregon than in Washington.
 * The pattern of differences during the campaign week looks almost exactly like the levels in Oregon itself, indicating  that the difference was entirely driven by Oregon (which makes sense as there was almost no social media response in Washington). 
@@ -342,11 +411,20 @@ All timelines in the figure below are baseline corrected. The figure shows the t
 ```{r, summary figure states and difference, fig.height=8, fig.width=12}
 df_or <- df %>%
   filter(state=="Oregon" & date>"2019-02-07"&date<"2019-06-14")
-ts_or <- events1819(plotTS(df=df_or, title="Oregon", limits=c(-0.01,0.13), legpos="none"))
+if(total=="all"){
+  ts_or <- events1819(plotTS(df=df_or, mode="percent_abs", title="Oregon",  limits=c(-0.01,0.13)))
+} else { 
+  ts_or <- events1819(plotTS(df=df_or, title="Oregon", limits=c(-5,40), legpos="none"))
+}
 
+#Washington
 df_wa <- df %>%
   filter(state=="Washington" & date>"2019-02-07"&date<"2019-06-14")
-ts_wa <- events1819(plotTS(df=df_wa, title="Washington",   limits=c(-0.01,0.13), legpos="none"))
+if(total=="all"){
+  ts_wa <- events1819(plotTS(df=df_wa, title="Washington",  limits=c(-0.01,0.13), legpos="none"))
+} else { 
+  ts_wa <- events1819(plotTS(df=df_wa, title="Washington",   limits=c(-5,40), legpos="none"))
+}
 
 #difference plot
 ts_diff <- events1819(plot.statediff+
@@ -354,11 +432,11 @@ ts_diff <- events1819(plot.statediff+
                         theme(legend.position="right", 
                               axis.text.x=element_text(angle=0, vjust=0.5, hjust=0.5)))
 
-  # pdf('figures/oregon_washington_absolute&difference_aroundcampaignweek.pdf', height=7, width=11)
-  plot_grid(plot_grid(ts_or, ts_wa, labels=c("A", "B")), 
-            plot_grid(ts_diff, rel_widths=c(1.88,1), ncol=2, labels="C"), 
+   # pdf('figures/oregon_washington_absolute&difference_aroundcampaignweek.pdf', height=7, width=11)
+  plot_grid(plot_grid(ts_or, ts_wa, labels=c("A", "B")),
+            plot_grid(ts_diff, rel_widths=c(1.88,1), ncol=2, labels="C"),
             nrow=2)
-  # dev.off()
+   # dev.off()
 ```
 
 
@@ -366,15 +444,20 @@ ts_diff <- events1819(plot.statediff+
 
 # Do Breaking the silence tweets occur at all during the baseline?
 
-Limit the y-scale to check if small percentages below 0.05% occur: 
+Limit the y-scale to check if small percentages below 5% occur: 
 
-```{r, campaign tweets below 0.05 before campaign, fig.height=6, fig.width=7}
+```{r, campaign tweets below 5 before campaign, fig.height=6, fig.width=7}
+if(total=="all"){
+ ylims =c(0, 0.045)
+} else { 
+ ylims =c(0,5)
+}
 fontsingleplots = 11
 ggplot(data=filter(df, keywords=="Breaking the silence"))+
   geom_line( aes(x=date, y=pr, colour=keywords))+
   facet_grid(rows=vars(state))+
   ylab("% tweets with keywords") +
-  ggtitle("Breaking the silence tweets below 0.04% during entire period")+ #plot title
+  ggtitle("Breaking the silence tweets below 5% during entire period")+ #plot title
   scale_fill_manual(  values = c("Breaking the silence"="blue", "Lifeline"="cyan"), name="Keywords in tweets")+
   scale_colour_manual(  values = c("Breaking the silence"="blue", "Lifeline"="cyan"), name="Keywords in tweets")+ 
   theme_bw()+ theme(text=element_text(size=fontsingleplots), axis.text=element_text(size=fontsingleplots), 
@@ -387,19 +470,24 @@ ggplot(data=filter(df, keywords=="Breaking the silence"))+
   geom_hline(yintercept = 0, colour = "grey50")+ #mean line
   geom_vline(xintercept = as.Date("2019-04-05"), colour = "grey50", linetype=2)+ #campaign week start
   geom_vline(xintercept = as.Date("2019-04-14"), colour = "grey50", linetype=2)+ #campaign week end
-  ylim(0, 0.045)
+  ylim(ylims)
 ```
 
 \newpage
 
 To look at the small frequencies before and after the campaign, I cut the y-scale to 0.002 percent max (1.0 would be 1%). Because of this, the high frequencies during the campaign week are not displayed, and the campaign week window is empty. This shows that Lifeline terms were used on 3 or 4 days (depending on the state) before the campaign, but at a negligible percentage below 0.0005%. 
 
-```{r, campaign tweets below 0.002 before campaign, fig.height=6, fig.width=7}
+```{r, campaign tweets below 2 before campaign, fig.height=6, fig.width=7}
+if(total=="all"){
+ ymax =c(0.002)
+} else { 
+ ymax =c(2)
+}
 ggplot(data=filter(df, keywords=="Breaking the silence"))+
   geom_line( aes(x=date, y=pr, colour=keywords))+
   facet_grid(rows=vars(state))+
   ylab("% tweets with keywords") +
-  ggtitle("Breaking the silence tweets below 0.002% during entire period")+ #plot title
+  ggtitle(paste0("Breaking the silence tweets below ", ymax, "% during entire period"))+ #plot title
   scale_fill_manual(  values = c("Breaking the silence"="blue", "Lifeline"="cyan"), name="Keywords in tweets")+
   scale_colour_manual(  values = c("Breaking the silence"="blue", "Lifeline"="cyan"), name="Keywords in tweets")+ 
   theme_bw()+ theme(text=element_text(size=fontsingleplots), axis.text=element_text(size=fontsingleplots), 
@@ -412,12 +500,13 @@ ggplot(data=filter(df, keywords=="Breaking the silence"))+
   geom_hline(yintercept = 0, colour = "grey50")+ #mean line
   geom_vline(xintercept = as.Date("2019-04-05"), colour = "grey50", linetype=2)+ #campaign week start
   geom_vline(xintercept = as.Date("2019-04-14"), colour = "grey50", linetype=2)+ #campaign week end
-  ylim(0, 0.002)
+  ylim(0,ymax)
 ```
 
 What number of tweets do these percentages represent? Only 1 tweet for each occurence during the baseline period. 
   
 ```{r, n campaign tweets before campaign, fig.height=6, fig.width=7}
+
 ggplot(data=filter(df, keywords=="Breaking the silence"))+
   geom_line( aes(x=date, y=keywords_n, colour=keywords))+
   facet_grid(rows=vars(state))+
@@ -454,47 +543,120 @@ events1819(plotTS(df=df, mode="number", title="Daily tweets cut at max 300 - Ent
 
 Median and median absolute deviation of tweets per day across both states:
 
+*Percent of all suicide related tweets*
+
 ```{r}
-df %>% 
+df_sui %>% 
   group_by(keywords, state) %>% 
   summarize(median_pr = median(pr), median_abs_dev = mad(pr))
 ```
 
-## Total number of tweets and median number of tweets per day in each state
+*Percent of all tweets*
 
 ```{r}
-tot <- df %>% 
+df_all %>% 
+  group_by(keywords, state) %>% 
+  summarize(median_pr = median(pr), median_abs_dev = mad(pr))
+```
+
+
+
+## Total number of tweets and median number of tweets per day in each state
+
+*All suicide related tweets*
+
+```{r}
+tots <- df_sui %>% 
+  group_by(state) %>%
+  filter(keywords=="Breaking the silence") %>% #choose only one of the repeated datasets (tot long the same every time)
+  summarize(totaltweets = round(sum(as.numeric(tot_n)), 2),
+            tweetsperday = round(median(as.numeric(tot_n)), 2)) %>% 
+  ungroup()
+tots
+```
+
+*All tweets*
+
+```{r}
+tota <- df_all %>% 
   group_by(state) %>%
   filter(keywords=="Breaking the silence") %>% #choose only one of the repeated datasets (tot long the same every time)
   summarize(milliontweets = round(sum(as.numeric(tot_n)/1000000), 2),
             tweetsperday = round(median(as.numeric(tot_n)), 2)) %>% 
   ungroup()
-tot
+tota
 ```
 
+*How many tweets contain the word suicide or suicidal, in percent of all tweets?*
+
+```{r}
+join_all = df_all %>% 
+  group_by(date, state) %>% 
+  slice(1) %>% 
+  ungroup() %>%
+  select(date, state, tot_n, pr)
+join_sui = df_sui %>% 
+  group_by(date, state) %>% 
+  slice(1) %>% 
+  ungroup() %>% 
+  select(date, state, tot_n, pr)
+df_both = inner_join(join_all, join_sui, by=c("date", "state"), suffix=c(".all", ".sui"))
+
+pr_sui = df_both %>% 
+  mutate(pr_suicide = 100/tot_n.all*tot_n.sui) %>% 
+  group_by(state) %>% 
+  summarise(mean_pr = round(mean(pr_suicide), 3))
+pr_sui
+```
 
 
 
 ## Number of tweets per query per time period 
+
 * Baseline: the year 2018
 * Campaign-week: 7-14 April 2019
 * After: 15 April until 14 June 2019 (2 months after the campaign)
 
+*Percent of all suicide related tweets*
+
 ```{r}
-medianperiod = as.data.frame(df %>% 
+medianperiod = as.data.frame(df_sui %>% 
   group_by(state, keywords, period) %>%
   summarize(mediann = round(median(as.numeric(keywords_n)), 2),
             madn=round(mad(keywords_n), 2), 
+            maxn = max(keywords_n),
             medianpr =round(median(as.numeric(pr)), 3), 
-            madpr=round(mad(pr), 3))%>% 
+            madpr=round(mad(pr), 3),
+            maxpr = round(max(pr),3))%>% 
   ungroup())
 filter(medianperiod, state=="Oregon")
 filter(medianperiod, state=="Washington")
-# write.csv2(medianperiod, './output/median_per_period.csv', row.names=F)
+write.csv(medianperiod, './output/median_per_period_totalSuicid*.csv', row.names=F)
 ```
+
+*Percent of all tweets*
+
+```{r}
+statsperiod = as.data.frame(df_all %>% 
+  group_by(state, keywords, period) %>%
+  summarize(mediann = round(median(as.numeric(keywords_n)), 2),
+            madn=round(mad(keywords_n), 2), 
+            maxn = max(keywords_n),
+            medianpr =round(median(as.numeric(pr)), 3), 
+            madpr=round(mad(pr), 3),
+            maxpr = round(max(pr),3))%>% 
+  ungroup())
+filter(statsperiod, state=="Oregon")
+filter(statsperiod, state=="Washington")
+write.csv(statsperiod, './output/median_per_period_TotalAll.csv', row.names=F)
+```
+
+
+
+
 
 ## Descriptive statistics summary
 
-We analysed a total number of `r filter(tot, state=="Oregon")$milliontweets` million tweets from Oregon, and `r filter(tot, state=="Washington")$milliontweets` million tweets from Washinton. During the period analysed from January 1 2018 until November 30 2019, there are very few tweets that mention mention the terms “Break the Silence” outside of the campaign window, resulting in a median of 0%. For instance, there are only 9 tweets across both states in the entire baseline year.  However, around `r round(median(filter(df, keywords=='Prevention')$pr), 3)`% of all tweets refer either to the Lifeline or to BeTheOneToo in both Oregon and Washington on average. 
+We analysed a total number of `r filter(tota, state=="Oregon")$milliontweets` million tweets from Oregon, and `r filter(tota, state=="Washington")$milliontweets` million tweets from Washinton. `r filter(tots, state=="Oregon")$totaltweets` and `r filter(tots, state=="Washington")$totaltweets` of these tweets were related to suicide, respectively, corresponding to `r pr_sui$mean_pr[1]` and `r pr_sui$mean_pr[2]`%.  During the period analysed from January 1 2018 until November 30 2019, there were very few tweets that mention mention the terms “Break the Silence” outside of the campaign window, resulting in a median of 0%. For instance, there are only 9 tweets across both states in the entire baseline year.  However, around `r round(median(filter(df_all, keywords=='Lifeline')$pr), 3)`% of all tweets refer either to the Lifeline or to BeTheOneToo in both Oregon and Washington on average. 
 
 
