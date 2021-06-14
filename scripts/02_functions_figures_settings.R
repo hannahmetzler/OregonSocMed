@@ -16,7 +16,7 @@ plotTS <- function(df, mode="percent_change", title="Country TS", limits=NULL, f
     plt <- plt +
       geom_ribbon(aes(x=date, ymin=prlow, ymax=prhigh, fill=keywords, colour=keywords), alpha=0.3, size=0) +
       geom_line( aes(x=date, y=pr, colour=keywords))+
-      ylab("% tweets with keywords") 
+      ylab("% tweets") 
   if (mode == "number")
     plt <- plt +
       geom_line( aes(x=date, y=keywords_n, colour=keywords))+
@@ -42,6 +42,7 @@ plotTS <- function(df, mode="percent_change", title="Country TS", limits=NULL, f
   
   return(plt)
 }
+
 
 #function to add important events linked to suicide to each time series plot
 events1819 <- function(plot){
