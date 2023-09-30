@@ -16,3 +16,9 @@ VolOregonTotal.csv: all English tweets from region (here Oregon)
 
 The raw text of tweets (accessible only for study authors) is in this OSF repository: https://osf.io/btydr/
 
+Query used on Brandwatch to download the daily volume of tweets: 
+
+* Campaign keywords: language:en AND region:USA.Or AND suicid* AND (800273talk OR 18002738255 OR "1-800-273-TALK" OR "1-800-273" OR "1-800-273-8255" OR Lifeline OR "suicide hotline" OR "suicide prevention hotline" OR Betheoneto OR #BeThe1To OR #Betheoneto OR Bethe1to) AND NOT (author:breakSilenceOr OR author:800273TALK OR author:Lines_for_Life) 
+* Lifeline related keywords: language:en AND region:USA.Or AND suicid* AND (breakingthesilence.com OR #BreakingTheSilence OR @BreakSilence OR "Breaking the silence") AND NOT (author:breakSilenceOr OR author:800273TALK OR author:Lines_for_Life)
+* Exchange region:USA.Or to region:USA.Wa for Washington. 
+
