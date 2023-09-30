@@ -14,4 +14,5 @@ VolOregonPreventionWithoutAuthors.csv) #prevention tweets: lifeline number, life
 VolOregonSuicide.csv:  #tweets with suicide or suicidal, suicid*
 VolOregonTotal.csv: all English tweets from region (here Oregon)
 
+The raw text of tweets (accessible only for study authors) is in this OSF repository: https://osf.io/btydr/
 
