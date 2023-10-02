@@ -15,8 +15,8 @@ wa_c  <- read.csv(paste0(data_dir, "/VolWashingtonCampaignWithoutAuthors.csv"), 
 wa_p <- read.csv(paste0(data_dir, "/VolWashingtonPreventionWithoutAuthors.csv"), sep="\t")
 
 #rename columns
-names(or_c) <- c("date","c_n")
-names(or_p) <- c("date","prev_n") 
+names(or_c) <- c("date","c_n") #campaign
+names(or_p) <- c("date","prev_n") #prevention
 names(wa_c) <- c("date","c_n") 
 names(wa_p) <- c("date","prev_n")
 
@@ -50,9 +50,9 @@ prop_bl_long <- function(df_tot, df_c, df_p) {
   # df_tot <- wa_tot; df_c <- wa_c; df_p<- wa_p
   
   #apply function defined above to format date and remove last date
-  df_c <- prepdates(df_c)
-  df_p <- prepdates(df_p) 
-  df_tot <- prepdates(df_tot)
+  df_c <- prepdates(df_c) #campaign query volume
+  df_p <- prepdates(df_p) #prevention terms volume
+  df_tot <- prepdates(df_tot) #total tweet volume
  
 #proportions with terms per category 
   df_all <- df_tot%>%
