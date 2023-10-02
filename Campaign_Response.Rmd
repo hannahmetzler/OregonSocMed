@@ -206,7 +206,7 @@ filter(medianperiod, state=="Oregon")
 filter(medianperiod, state=="Washington")
 write.csv(medianperiod, './output/median_per_period_totalSuicid*.csv', row.names=F)
 ```
-## Compare median absolute number per time period between states
+## Compare absolute number of tweets per time period between states using proportion tests
 
 ```{r}
 # Proportions test: compare n tweets with query terms against total tweets
@@ -284,36 +284,6 @@ write.csv(statsperiod, './output/median_per_period_TotalAll.csv', row.names=F)
 ## Descriptive statistics summary
 
 We analysed a total number of `r filter(tota, state=="Oregon")$milliontweets` million tweets from Oregon, and `r filter(tota, state=="Washington")$milliontweets` million tweets from Washinton. `r filter(tots, state=="Oregon")$totaltweets` and `r filter(tots, state=="Washington")$totaltweets` of these tweets were related to suicide, respectively, corresponding to `r pr_sui$mean_pr[1]` and `r pr_sui$mean_pr[2]`%.  During the period analysed from January 1 2018 until November 30 2019, there were very few tweets that mention mention the terms “Break the Silence” outside of the campaign window, resulting in a median of 0%. For instance, there are only 9 tweets across both states in the entire baseline year.  However, around `r round(median(filter(df_all, keywords=='Lifeline')$pr), 3)`% of all tweets refer either to the Lifeline or to BeTheOneToo in both Oregon and Washington on average. 
-
-# Statistical test to compare levels per time period between Oregon and Washington
-
-```{r}
-#group by: period and query
-
-# distribution had outlier peaks: use ranked sum tests
-
-#t-test
-Or_vs_Wa = df_sui %>% 
-  group_by(keywords, period) %>% 
-  summarise(
-    ttest = list(
-       t.test(pr ~ state, var.equal = TRUE)
-    ))  #this is a new alternative way for writing
-
-Campaign.query_baseline = Or_vs_Wa$ttest[[1]]; Campaign.query_baseline
-Campaign.query_pre.campaign = Or_vs_Wa$ttest[[2]]; Campaign.query_pre.campaign
-Campaign.query_campaign.week = Or_vs_Wa$ttest[[3]]; Campaign.query_campaign.week
-Campaign.query_after.campaign = Or_vs_Wa$ttest[[4]]; Campaign.query_after.campaign
-
-#does not give the same df as: 
-t.test(pr ~ state, data = filter(df_sui, period == "Baseline"& keywords =="Breaking the silence"), var.equal = T, paired = FALSE)
-```
-## Breaking the silence query
-
-Comparing the percentage in Oregon vs. Washington 
-
-* In the baseline period: `r apa_print(Campaign.query_baseline)$full_result`
-* 2019 before campaign: `r apa_print(Campaign.query_pre.campaign)$full_result`
 
 # Time series around campaign week: Absolute percentages 
 
