@@ -1,7 +1,7 @@
 ---
 title: "Oregon Campaign Response on Twitter"
 author: "Hannah Metzler"
-date: "17 Nov 2020"
+date: "3 Oct 2023"
 output:
   pdf_document:
     df_print: kable
@@ -32,9 +32,10 @@ library(cowplot) #for figures, placing next to each other
 library(tidyr)
 library(papaja) # print statistics in apa style
 library(car)
+library(lubridate)
 ```
 
-```{r,data, include=FALSE}
+```{r, data, include=FALSE}
 # Run data preprocessing the first time you use this script (takes about 1 minute or so)
 # source("scripts/01preparedata.R")
 
@@ -206,62 +207,6 @@ filter(medianperiod, state=="Oregon")
 filter(medianperiod, state=="Washington")
 write.csv(medianperiod, './output/median_per_period_totalSuicid*.csv', row.names=F)
 ```
-## Compare absolute number of tweets per time period between states using proportion tests
-
-```{r}
-# Proportions test: compare n tweets with query terms against total tweets
-
-#calculate sum of tweets per period for total and query tweets
-n_tweets_per_period = as.data.frame(df_sui %>% 
-  group_by(state, keywords, period) %>%
-  summarize(keywords_n = sum(keywords_n),
-            total_n = sum(tot_n))%>% 
-  ungroup()) %>% 
-  arrange(keywords, period, state) %>% 
-  pivot_wider(names_from = state, 
-              values_from = c(keywords_n, total_n))
-
-# prop.test(x = c(query_terms_Oregon, query_terms_Washington), n = c(total_tweets_Oregon, total_tweets_Washington), alternative = "two.sided")
-#running multiple tests at once: https://cameronpatrick.com/post/2023/06/dplyr-fitting-multiple-models-at-once/
-
-OvsW = n_tweets_per_period %>% 
-  group_by(keywords, period) %>% 
-  summarize(
-    proptest = list(
-      prop.test(x = c(keywords_n_Oregon, keywords_n_Washington), n = c(total_n_Oregon, total_n_Washington), alternative = "two.sided", correct = FALSE) 
-      #continuity correction false because it only matters for small sample sizes. For our sizes, result is the same with and without
-      )
-  ) %>% 
-  ungroup()
-
-# #look at one test in the list: 
-# OvsW$proptest[[1]]
-# # structure of the list: 
-# str(OvsW$proptest)
-
-OvsW$prop_Oregon = round(sapply(OvsW$proptest, function(x) x$estimate[1]), 3)
-OvsW$prop_Washington = round(sapply(OvsW$proptest, function(x) x$estimate[2]), 3)
-
-OvsW$Chisquared = round(sapply(OvsW$proptest, function(x) x$statistic), 2)
-OvsW$df = sapply(OvsW$proptest, function(x) x$parameter)
-OvsW$p.value = round(sapply(OvsW$proptest, function(x) x$p.value), 3)
-
-OvsW$ci_lower = round(sapply(OvsW$proptest, function(x) x$conf.int[1]), 3)
-OvsW$ci_upper = round(sapply(OvsW$proptest, function(x) x$conf.int[2]), 3)
-```
-
-### Sum of tweets per time period and state
-
-```{r}
-n_tweets_per_period
-```
-
-
-### Proportion test between states per time period
-
-```{r}
-select(OvsW, -c(proptest))
-```
 
 
 *Percent of all tweets*
@@ -284,6 +229,118 @@ write.csv(statsperiod, './output/median_per_period_TotalAll.csv', row.names=F)
 ## Descriptive statistics summary
 
 We analysed a total number of `r filter(tota, state=="Oregon")$milliontweets` million tweets from Oregon, and `r filter(tota, state=="Washington")$milliontweets` million tweets from Washinton. `r filter(tots, state=="Oregon")$totaltweets` and `r filter(tots, state=="Washington")$totaltweets` of these tweets were related to suicide, respectively, corresponding to `r pr_sui$mean_pr[1]` and `r pr_sui$mean_pr[2]`%.  During the period analysed from January 1 2018 until November 30 2019, there were very few tweets that mention mention the terms “Break the Silence” outside of the campaign window, resulting in a median of 0%. For instance, there are only 9 tweets across both states in the entire baseline year.  However, around `r round(median(filter(df_all, keywords=='Lifeline')$pr), 3)`% of all tweets refer either to the Lifeline or to BeTheOneToo in both Oregon and Washington on average. 
+
+\newpage
+
+# Statistical test to compare tweet numbers per time period between states
+
+```{r}
+#calculate sum of tweets per period for total and query tweets
+n_tweets_per_period = as.data.frame(df_sui %>% 
+  group_by(state, period, keywords) %>%
+  summarize(keywords_n = sum(keywords_n),
+            total_n = sum(tot_n))%>% 
+  ungroup()) %>% 
+  pivot_wider(names_from = state, 
+              values_from = c(keywords_n, total_n)) %>% 
+  rename("query_Or" = keywords_n_Oregon, "query_Wa" = keywords_n_Washington, "total_Or"= total_n_Oregon, "total_Wa" = total_n_Washington)
+
+example = filter(n_tweets_per_period, period =="2019 before campaign" & keywords == "Breaking the silence")
+```
+
+*Sum of tweets (absolute numbers) per time period and state, for tweets containing query terms and total volume of suicide-related tweets*
+
+```{r}
+n_tweets_per_period
+```
+
+These tweet volumes are used to estimate the proportion of tweets with query terms out of all suicide-related tweets, to then calculate a two-sample proportions Chi-square test. 
+```{r}
+# Proportions test: compare n tweets with query terms against total tweets
+# prop.test(x = c(query_terms_Oregon, query_terms_Washington), n = c(total_tweets_Oregon, total_tweets_Washington), alternative = "two.sided")
+#running multiple tests at once: https://cameronpatrick.com/post/2023/06/dplyr-fitting-multiple-models-at-once/
+OvsW = n_tweets_per_period %>% 
+  group_by(keywords, period) %>% 
+  summarize(
+    proptest = list(
+      prop.test(x = c(query_Or, query_Wa), n = c(total_Or, total_Wa), alternative = "two.sided", correct = FALSE) 
+      #continuity correction false because it only matters for small sample sizes. For our sizes, result is the same with and without
+      )
+  ) %>% 
+  ungroup()
+
+# #look at one test in the list: 
+# OvsW$proptest[[1]]
+# # structure of the list: 
+# str(OvsW$proptest)
+
+#put important estimates into a table
+OvsW$percent_difference= round(sapply(OvsW$proptest, function(x) x$estimate[1])-(sapply(OvsW$proptest, function(x) x$estimate[2])), 3)*100
+OvsW$Chisquared = round(sapply(OvsW$proptest, function(x) x$statistic), 2)
+OvsW$df = sapply(OvsW$proptest, function(x) x$parameter)
+OvsW$p.value = round(sapply(OvsW$proptest, function(x) x$p.value), 3)
+OvsW$ci_lower = round(sapply(OvsW$proptest, function(x) x$conf.int[1]), 3)*100
+OvsW$ci_upper = round(sapply(OvsW$proptest, function(x) x$conf.int[2]), 3)*100
+
+pre_Breaking = filter(OvsW, period =="2019 before campaign" & keywords == "Breaking the silence")
+```
+* Example Breaking the silence query in 2019 before the campaign:
+
+  * In Oregon, 149 tweets contained query terms, out of a total of 72873 suicide-related tweets. Percent: `r example$query_Or/example$total_Or*100`.
+  * In Washington, 6 tweets contained query terms, out of a total of 92167 suicide-related tweets. Percent: `r example$query_Wa/example$total_Wa*100`.
+  * These 2 proportions are significantly different: $\chi^2$ = `r pre_Breaking$Chisquared`(`r pre_Breaking$df`), p = `r round(pre_Breaking$p.value, 3)`
+
+*Proportion tests between states per time period and query*:
+
+Percent difference: Oregon minus Washington. (If positive, the proportion in Oregon was higher.)
+
+```{r}
+select(OvsW, -c(proptest))
+```
+
+
+
+### Should time periods be normalized for their length, because number of days influences the p-value?
+
+Count of days per period
+
+```{r}
+df_sui %>% 
+  #remove duplicate rows per date
+  group_by(date) %>%
+  filter(row_number()==1) %>%
+  group_by(period) %>% 
+  summarize(n = n())
+```
+
+
+<!-- ```{r} -->
+<!--  # do the same per week? -->
+<!-- df_sui_weeks = as.data.frame(df_sui %>% -->
+<!--                 arrange(keywords, date) %>%  -->
+<!--                 mutate(week = lubridate::epiweek(date))) -->
+
+<!-- df_sui_weeks %>%  -->
+<!--   select(keywords, period, date, weekday, week) %>% -->
+<!--   group_by(date) %>%  -->
+<!--   filter(row_number()==1) %>%  -->
+<!--   ungroup() %>%  -->
+<!--   #campaign week -->
+<!--   filter(date > as.Date('2019-04-05')) -->
+<!-- # the campaign started and ended on a Sunday, these are 8 days, that should all be assigned to week 15 - the week after will have a day less? -->
+
+<!-- #assign the sunday at end of the campaign (day 8) to week 15 -->
+<!-- df_sui_weeks[df_sui_weeks$date == "2019-04-14", ]$week = rep(15, 4) -->
+
+<!-- #calculate proportion per week -->
+<!-- df_sui_weeks %>%  -->
+<!--   group_by(state, week, keywords) %>% -->
+<!--   summarize(keywords_n = sum(keywords_n), -->
+<!--             total_n = sum(tot_n))%>% -->
+<!--   ungroup() %>% -->
+<!--   pivot_wider(names_from = state, -->
+<!--               values_from = c(keywords_n, total_n)) -->
+<!-- ``` -->
 
 # Time series around campaign week: Absolute percentages 
 
