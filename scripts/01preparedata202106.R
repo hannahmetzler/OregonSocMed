@@ -3,7 +3,9 @@ library(dplyr)
 
 # choose if total tweet volume or tweets about suicide should be taken as the reference for specific queries (e.g. the total based on which percentages are calculated)
 
-total = "suicide" # suicide or all
+total = "all" # suicide or all
+
+#data directory for raw data
 data_dir = "data_raw202106"
 
 # Read data: oregon data, c = campaign/breaking the silence, p=prevention/professional/lifeline
@@ -119,21 +121,23 @@ df_washington<- prop_bl_long(wa_tot, wa_c, wa_p) %>%
 #combine both dataframes
 df <- rbind(df_oregon, df_washington) %>% 
   mutate(period = as.factor(case_when(
+
     date >= "2018-01-01" & date <= "2018-12-31" ~ "Baseline", 
-    date > "2019-04-14" & date <= "2019-06-14"~ "After", 
+    date >= "2019-01-01" & date < "2019-04-07" ~ "2019 before campaign",
     date >= "2019-04-07" & date <= "2019-04-14" ~  "Campaign-week",
-    TRUE ~ "2019 before campaign"))) 
+    date >= "2019-04-15" & date <= "2019-06-14"  ~ "After",
+    TRUE ~ "More than 2 months after campaign"))) 
 
 #save file with only the values when authors are excluded
-df1 <- df %>% 
-  filter(keywords=="Breaking the silence wo authors" | keywords=="Lifeline wo authors") %>% 
-  droplevels() %>% 
-  mutate(keywords=recode(keywords,"Breaking the silence wo authors"= "Breaking the silence", "Lifeline wo authors"="Lifeline"))
+df1 <- df %>%
+  filter(keywords=="Breaking the silence wo authors" | keywords=="Lifeline wo authors") %>%
+  droplevels() %>%
+  mutate(keywords=dplyr::recode(keywords,"Breaking the silence wo authors"= "Breaking the silence", "Lifeline wo authors"="Lifeline"))
 
 if(total =="all"){
-  write.csv(df1, "data/TweetVolumeLong_TotalAll.csv", row.names=F)
+  write.csv(df1, "data/TweetVolumeLong_TotalAll_202106.csv", row.names=F)
 } else{
-  write.csv(df1, "data/TweetVolumeLong_TotalSuicide.csv", row.names=F)
+  write.csv(df1, "data/TweetVolumeLong_TotalSuicide_202106.csv", row.names=F)
 }
 
 rm(list=ls()) #delete variables in environment
